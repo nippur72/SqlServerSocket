@@ -220,8 +220,8 @@ public class Server
 
             try
             {
-               var rows = st.database.Query(cmd.text);                                                                                       
-               return new DataResult(rows);
+               var query = st.database.Query(cmd.text);                                                                                       
+               return new DataResult(query);
             }
             catch(Exception ex)
             {
@@ -234,10 +234,8 @@ public class Server
 
             try
             {
-               var row = st.database.QuerySingle(cmd.text);                                                   
-               List<Row> result = new List<Row>();
-               result.Add(row);               
-               return new DataResult(result);
+               var query = st.database.QuerySingle(cmd.text);                                                   
+               return new DataResult(query);
             }
             catch(Exception ex)
             {
@@ -250,12 +248,8 @@ public class Server
 
             try
             {
-               var value = st.database.QueryValue(cmd.text);               
-               Row r = new Row();
-               r.Add("value",value);
-               List<Row> result = new List<Row>();
-               result.Add(r);               
-               return new DataResult(result);
+               var query = st.database.QueryValue(cmd.text);               
+               return new DataResult(query);
             }
             catch(Exception ex)
             {
@@ -268,12 +262,8 @@ public class Server
 
             try
             {
-               int rowsAffected = st.database.Execute(cmd.text);               
-               Row r = new Row();
-               r.Add("rowsAffected",rowsAffected);
-               List<Row> result = new List<Row>();
-               result.Add(r);               
-               return new DataResult(result);
+               var query = st.database.Execute(cmd.text);               
+               return new DataResult(query);
             }
             catch(Exception ex)
             {
@@ -310,11 +300,13 @@ public class DataResult
 {
    public string type;
    public List<Row> rows;
+   public Dictionary<string,string> columns;
 
-   public DataResult(List<Row> data)
+   public DataResult(QueryResult data)
    {
       type = "data";
-      rows = data;
+      rows = data.rows;
+      columns = data.columns;
    }
 }
 

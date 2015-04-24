@@ -81,12 +81,11 @@ namespace SimpleDB
          if(Trans!=null) Trans.Rollback();           
       }
 
-      public QueryTableResult QueryTable(string SQL, params object[] parms)
+      public QueryTableResult QueryTable(string SQL)
       {         
          List<Row> rows = new List<Row>();
-         
-         //var cmdtext = String.Format(SQLSyntax.Formatter,SQL,parms);
-         var cmdtext = String.Format(SQL,parms);
+                  
+         var cmdtext = SQL;
 
          SqlCommand cmd = new SqlCommand(cmdtext,Conn,Trans);
          cmd.CommandTimeout = TimeOut;
@@ -116,12 +115,11 @@ namespace SimpleDB
          return qtr;          
       }
 
-      public List<Row> Query(string SQL, params object[] parms)
+      public QueryResult Query(string SQL)
       {         
-         List<Row> result = new List<Row>();
-         
-         //var cmdtext = String.Format(SQLSyntax.Formatter,SQL,parms);
-         var cmdtext = String.Format(SQL,parms);
+         var result = new QueryResult();
+                           
+         var cmdtext = SQL;
 
          SqlCommand cmd = new SqlCommand(cmdtext,Conn,Trans);
          cmd.CommandTimeout = TimeOut;
@@ -133,21 +131,25 @@ namespace SimpleDB
 
             for(int t=0;t<dr.FieldCount;t++) 
             {
-               row.Add(dr.GetName(t),dr.GetValue(t));
+               string fieldName = dr.GetName(t);
+               object fieldValue = dr.GetValue(t);
+               row.Add(fieldName,fieldValue);
+               
+               if(result.rows.Count==0) result.columns.Add(fieldName, dr.GetDataTypeName(t));
             }
-            result.Add(row);
+            result.rows.Add(row);
          }
          dr.Close();
          cmd.Dispose();
+         
          return result;          
       }
 
-      public Row QuerySingle(string SQL, params object[] parms)
+      public QueryResult QuerySingle(string SQL)
       {         
-         Row result = new Row();
-         
-         //var cmdtext = String.Format(SQLSyntax.Formatter,SQL,parms);
-         var cmdtext = String.Format(SQL,parms);
+         var result = new QueryResult();
+                  
+         var cmdtext = SQL;
 
          SqlCommand cmd = new SqlCommand(cmdtext,Conn,Trans);
          cmd.CommandTimeout = TimeOut;
@@ -157,11 +159,20 @@ namespace SimpleDB
          {            
             if(dr.Read())
             {
+               Row row = new Row();
+               
                for(int t=0;t<dr.FieldCount;t++) 
                {
-                  result.Add(dr.GetName(t),dr.GetValue(t));
+                  string fieldName = dr.GetName(t);
+                  object fieldValue = dr.GetValue(t);
+                  row.Add(fieldName,fieldValue);
+               
+                  if(result.rows.Count==0) result.columns.Add(fieldName, dr.GetDataTypeName(t));                  
                }
-            } else result = null; // 0-rows results in null response
+
+               result.rows.Add(row);
+            } 
+            else result = null; // 0-rows results in null response
          }
          else result = null; // 0-rows results in null response
          dr.Close();
@@ -169,32 +180,58 @@ namespace SimpleDB
          return result;          
       }
 
-      public dynamic QueryValue(string SQL, params object[] parms)
+      public QueryResult QueryValue(string SQL)
       {
-         //var cmdtext = String.Format(SQLSyntax.Formatter,SQL,parms);
-         var cmdtext = String.Format(SQL,parms);
+         var result = new QueryResult();
+                  
+         var cmdtext = SQL;
 
          SqlCommand cmd = new SqlCommand(cmdtext,Conn,Trans);
-         cmd.CommandTimeout = TimeOut;          
-           
-         dynamic dr = cmd.ExecuteScalar();      
-                                 
+         cmd.CommandTimeout = TimeOut;
+         SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.SingleRow);
+                                                                                 
+         if(dr.FieldCount>0) 
+         {            
+            if(dr.Read())
+            {
+               Row row = new Row();
+               
+               for(int t=0;t<1;t++) 
+               {
+                  string fieldName = "value"; // dr.GetName(t);
+                  object fieldValue = dr.GetValue(t);
+                  row.Add(fieldName,fieldValue);
+               
+                  if(result.rows.Count==0) result.columns.Add(fieldName, dr.GetDataTypeName(t));                  
+               }
+
+               result.rows.Add(row);
+            } 
+            else result = null; // 0-rows results in null response
+         }
+         else result = null; // 0-rows results in null response
+         dr.Close();
          cmd.Dispose();
-         return dr;          
+         return result;                         
       }
 
-      public int Execute(string SQL, params object[] parms)
-      {
-         //var cmdtext = String.Format(SQLSyntax.Formatter,SQL,parms);
-         var cmdtext = String.Format(SQL,parms);
+      public QueryResult Execute(string SQL)
+      {         
+         var cmdtext = SQL;
 
          SqlCommand cmd = new SqlCommand(cmdtext,Conn,Trans);
          cmd.CommandTimeout = TimeOut;          
            
-         int nrows = cmd.ExecuteNonQuery(); 
+         int rowsAffected = cmd.ExecuteNonQuery(); 
+         
+         var result = new QueryResult();
+         Row row = new Row();
+         row.Add("rowsAffected",rowsAffected);
+         result.rows.Add(row);
+         result.columns.Add("rowsAffected","int");
                                  
          cmd.Dispose();
-         return nrows;          
+         return result;          
       }
 
       public DataTable GetSchema(string[] columns, string tablename)

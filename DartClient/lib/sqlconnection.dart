@@ -278,12 +278,28 @@ class SqlConnection
       }
       else if(result["type"]=="data")
       {
-        r.type = result["type"];
-        r.rows = result["rows"];
+        r.type    = result["type"];
+        r.rows    = result["rows"];
+        r.columns = result["columns"]; 
+        _fixTypes(r);
         return r;      
       }
       else throw "unknown response";
    }   
+   
+   /// fix string data type coming from JSON into proper Dart data type
+   void _fixTypes(Result r)
+   {
+      void _fixDateTime(String columnName)
+      {
+         for(int t=0;t<r.rows.length;t++) r.rows[t][columnName] = DateTime.parse(r.rows[t][columnName]);         
+      }
+      
+      for(var fname in r.columns.keys)
+      {
+         if(r.columns[fname]=="datetime") _fixDateTime(fname);
+      }
+   }  
 }
 
 /// implements the type of results returning from SqlServerSocket.exe
@@ -293,6 +309,7 @@ class Result
    String type;
    String error;
    List   rows;
+   Map    columns;
    
    bool get isOk    => type=="ok";
    bool get isError => type=="error";

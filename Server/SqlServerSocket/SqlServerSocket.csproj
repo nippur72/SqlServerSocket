@@ -48,6 +48,7 @@
     <Compile Include="SimpleDB\Database.cs" />
     <Compile Include="SimpleDB\PostBack.cs" />
     <Compile Include="SimpleDB\PostBackException.cs" />
+    <Compile Include="SimpleDB\QueryResult.cs" />
     <Compile Include="SimpleDB\QueryTableResult.cs" />
     <Compile Include="SimpleDB\Row.cs" />
     <Compile Include="SimpleDB\Utils.cs" />

@@ -12,7 +12,7 @@ main() async
       
    print("connected");
    
-   List rows = await conn.query("SELECT TOP 3 * FROM Comuni_Anagrafe");
+   List rows = await conn.query("SELECT TOP 3 Id,Nome,Cognome FROM Comuni_Anagrafe");
       
    print("queried");
    
@@ -21,7 +21,9 @@ main() async
       print(r["Cognome"]);
    }
    
-   var s = await conn.queryValue("SELECT db_name()");
+   var s = await conn.queryValue("SELECT DataStampa FROM Mag_DocMag WHERE DataStampa IS NOT NULL");
+   
+   assert(s is DateTime);
    
    print("dbname=$s");
    
