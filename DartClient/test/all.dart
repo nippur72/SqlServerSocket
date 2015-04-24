@@ -3,8 +3,9 @@
 
 library all_tests;
 
-import 'SockedSql_test.dart' as SockedSql_test;
+import 'sqlconnection_test.dart' as SqlConnection_test;
 
-void main() {
-  SockedSql_test.defineTests();
+void main() 
+{
+  SqlConnection_test.defineTests();
 }

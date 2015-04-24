@@ -105,7 +105,8 @@ public class Server
         if(bytesRead > 0) 
         {
             // There  might be more data, so store the data received so far.
-            state.sb.Append(Encoding.ASCII.GetString(state.buffer,0,bytesRead));
+            //state.sb.Append(Encoding.ASCII.GetString(state.buffer,0,bytesRead));
+            state.sb.Append(Encoding.UTF8.GetString(state.buffer,0,bytesRead));
 
             // Check for end-of-file tag. If it is not there, read more data.
             content = state.sb.ToString();
@@ -146,7 +147,7 @@ public class Server
         string dataToSend = data.Length.ToString()+"\r\n"+data;
 
         // Convert the string data to byte data using ASCII encoding.
-        byte[] byteData = Encoding.ASCII.GetBytes(dataToSend);
+        byte[] byteData = Encoding.UTF8.GetBytes(dataToSend);
 
         // Begin sending the data to the remote device.
         handler.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), handler);
@@ -177,14 +178,25 @@ public class Server
     }
 
     public object ParseCommandInner(string command, StateObject st)
-    {
-        if(command.StartsWith("CONNECT"))
+    {        
+        Command cmd;
+        
+        try
         {
+          cmd = JsonConvert.DeserializeObject<Command>(command);
+        }
+        catch(Exception ex)
+        {
+          return new ErrorResult("invalid command");
+        }
+
+        if(cmd.type=="open")
+        {
+            if(st.database!=null) return new ErrorResult("already connected");
+
             try
             {               
-               var connstr = @"Server=localhost\SQLEXPRESS;Database=Portento;Trusted_Connection=yes;";
-               //var connstr = @"Server=DEVIL\SQLEXPRESS;Database=Phoenix64;User Id=sa;Password=;";
-               st.database = new SimpleDB.Database(connstr);
+               st.database = new SimpleDB.Database(cmd.text);
                st.database.Open();
                return new OkResult();
             }
@@ -193,86 +205,82 @@ public class Server
                return new ErrorResult(ex.Message);
             }
         }
-        else if(st.database==null)
+        else if(cmd.type=="close")
         {
-            return new ErrorResult("not connected");
-        }
-        else if(command == "DISCONNECT")
-        {
+            if(st.database==null) return new ErrorResult("not connected");
+
             st.database.Close();
+            st.database = null;
             st.disconnect = true;
             return new OkResult();
         }
-        else
-        {
-            Command cmd = JsonConvert.DeserializeObject<Command>(command);
-            
-            /*
-            if(cmd.type=="querytable") 
-            { 
-               st.database.QueryTable(cmd.sql); 
-            }
-            else */
-            if(cmd.type=="query")
+        else if(cmd.type=="query")
+         {
+            if(st.database==null) return new ErrorResult("not connected");
+
+            try
             {
-               try
-               {
-                  var rows = st.database.Query(cmd.sql);                                                                                       
-                  return new DataResult(rows);
-               }
-               catch(Exception ex)
-               {
-                  return new ErrorResult(ex.Message);
-               }
+               var rows = st.database.Query(cmd.text);                                                                                       
+               return new DataResult(rows);
             }
-            else if(cmd.type=="querysingle")
+            catch(Exception ex)
             {
-               try
-               {
-                  var row = st.database.QuerySingle(cmd.sql);                                                   
-                  List<Row> result = new List<Row>();
-                  result.Add(row);               
-                  return new DataResult(result);
-               }
-               catch(Exception ex)
-               {
-                  return new ErrorResult(ex.Message);
-               }
+               return new ErrorResult(ex.Message);
             }
-            else if(cmd.type=="queryvalue")
+         }
+         else if(cmd.type=="querysingle")
+         {
+            if(st.database==null) return new ErrorResult("not connected");
+
+            try
             {
-               try
-               {
-                  var value = st.database.QueryValue(cmd.sql);               
-                  Row r = new Row();
-                  r.Add("value",value);
-                  List<Row> result = new List<Row>();
-                  result.Add(r);               
-                  return new DataResult(result);
-               }
-               catch(Exception ex)
-               {
-                  return new ErrorResult(ex.Message);
-               }
+               var row = st.database.QuerySingle(cmd.text);                                                   
+               List<Row> result = new List<Row>();
+               result.Add(row);               
+               return new DataResult(result);
             }
-            else if(cmd.type=="execute")
-            {               
-               try
-               {
-                  int rowsAffected = st.database.Execute(cmd.sql);               
-                  Row r = new Row();
-                  r.Add("rowsAffected",rowsAffected);
-                  List<Row> result = new List<Row>();
-                  result.Add(r);               
-                  return new DataResult(result);
-               }
-               catch(Exception ex)
-               {
-                  return new ErrorResult(ex.Message);
-               }
+            catch(Exception ex)
+            {
+               return new ErrorResult(ex.Message);
             }
-            else return new ErrorResult("unknown command");            
-        }        
+         }
+         else if(cmd.type=="queryvalue")
+         {
+            if(st.database==null) return new ErrorResult("not connected");
+
+            try
+            {
+               var value = st.database.QueryValue(cmd.text);               
+               Row r = new Row();
+               r.Add("value",value);
+               List<Row> result = new List<Row>();
+               result.Add(r);               
+               return new DataResult(result);
+            }
+            catch(Exception ex)
+            {
+               return new ErrorResult(ex.Message);
+            }
+         }
+         else if(cmd.type=="execute")
+         {               
+            if(st.database==null) return new ErrorResult("not connected");
+
+            try
+            {
+               int rowsAffected = st.database.Execute(cmd.text);               
+               Row r = new Row();
+               r.Add("rowsAffected",rowsAffected);
+               List<Row> result = new List<Row>();
+               result.Add(r);               
+               return new DataResult(result);
+            }
+            catch(Exception ex)
+            {
+               return new ErrorResult(ex.Message);
+            }
+         }
+         else return new ErrorResult("unknown command");                            
     }
 }
 
@@ -313,6 +321,6 @@ public class DataResult
 public class Command
 {
    public string type;
-   public string sql;
+   public string text;
 }
 

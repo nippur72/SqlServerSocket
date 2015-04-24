@@ -1,8 +1,8 @@
-name: SockedSql
+name: sql_server_socket
 version: 0.0.1
 description: A minimal command-line application.
-#author: <your name> <email@example.com>
-#homepage: https://www.example.com
+#author: <Antonino Porcino> <nino.porcino@gmail.com>
+#homepage: https://github.com/nippur72/SqlServerSocket
 environment:
   sdk: '>=1.0.0 <2.0.0'
 #dependencies:

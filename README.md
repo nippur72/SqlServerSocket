@@ -15,29 +15,29 @@ Some dart examples (using `async` and `await`):
 
 ```
 // create a database object 
-var db = new Database();
+var conn = new SqlConnection("SERVER=localhost;Database=mydb;Trusted_connection=yes");
 
 // establish connection
-await db.connect("SERVER=localhost;Database=mydb;Trusted_connection=yes");
+await conn.open();
 
 // runs a query returning a single value
-var dbname = await db.queryValue("SELECT db_name()");
+var dbname = await db.queryValue("SELECT COUNT(*) FROM Customers");
 
 // runs a query returning a single row
 var myFirstCustomer = await db.querySingle("SELECT name,age FROM Custormers");
 print(myFirstCustomer["name"]);
 
-// runs a query returning rows
-var customers = await db.querySingle("SELECT name,age FROM Custormers");
+// runs a query returning all rows
+var customers = await db.query("SELECT TOP 10 name,age FROM Custormers");
 for(var customer in customers)
 {
    print(customer["name"]);
 }
 
 // execute a command, returning the number of rows affected
-var n = await db.execute("UPDATE Customer SET age=0");
+var n = await db.execute("UPDATE Customers SET age=0");
 print("zeroed $n customers");
 
 // disconnect
-await db.disconnect();
+await conn.close();
 ```
