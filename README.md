@@ -6,18 +6,19 @@ The service acts like a bridge between SQL Server and Dart. It's written in C# a
 
 ## How to install it
 
-1) Install and execute `SqlServerSocket.exe` in the background on the server machine where SQL Server is installed. The program will listen for connection coming from Dart on the local port `10980`.
-2) On the Dart side (server), install and reference the package `SqlServerSocket`.
+1. Install and execute `SqlServerSocket.exe` in the background on the server machine where SQL Server is installed. The program will listen for connection coming from Dart on the local port `10980`.
+
+2. On the Dart side (server), install and reference the package `SqlServerSocket`.
 
 ## Usage
 
 Some dart examples (using `async` and `await`): 
 
-```
-// create a database object 
+```Dart
+// creates a connection 
 var conn = new SqlConnection("SERVER=localhost;Database=mydb;Trusted_connection=yes");
 
-// establish connection
+// open connection
 await conn.open();
 
 // runs a query returning a single value
