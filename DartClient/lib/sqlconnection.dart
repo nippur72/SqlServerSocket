@@ -138,7 +138,7 @@ class SqlConnection
    {      
       if(!connected) throw "not connected";
       
-      String params = JSON.encode(chg);
+      String params = JSON.encode(chg.toEncodable());
       
       String json = JSON.encode({ "type": "postback", "text": params });
       

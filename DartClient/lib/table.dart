@@ -13,6 +13,18 @@ class ColumnDefinition
    bool IsReadOnly;
    int ColumnSize;
    String BaseTableName;
+   
+   ColumnDefinition.fromMap(Map map)
+   {
+      ColumnName    = map["ColumnName"];
+      DataTypeName  = map["DataTypeName"];
+      AllowDBNull   = map["AllowDBNull"];
+      IsIdentity    = map["IsIdentity"];
+      IsKey         = map["IsKey"];
+      IsReadOnly    = map["IsReadOnly"];
+      ColumnSize    = map["ColumnSize"];
+      BaseTableName = map["BaseTableName"];      
+   }
 }
 
 class ChangeSet
@@ -21,7 +33,17 @@ class ChangeSet
    List inserted     = new List();
    List deleted      = new List();
    List updated_new  = new List();
-   List updated_old  = new List();   
+   List updated_old  = new List();  
+   
+   Map toEncodable() => 
+   { 
+      "tablename"   : tablename, 
+      "inserted"    : inserted, 
+      "deleted"     : deleted, 
+      "updated_new" : updated_new,
+      "updated_old" : updated_old
+   };
+   
 }
 
 class PostBackResponse
@@ -41,14 +63,23 @@ class Table
    
    bool modified;  
    
-   Table(SqlConnection conn, String tableName, List<Map<String,dynamic>> rows, List<ColumnDefinition> columns)
+   Table(SqlConnection conn, String tableName, List<Map<String,dynamic>> rows, List<Map<String,String>> columns)
    {
       this._conn = conn;
       this.tableName = tableName;
       this.rows = rows;
-      this.columns = columns;
+      
+      // keep a shallow copy of original rows for compare
       this.originalrows = _copyRows(rows);
+      
+      // build column definitions
+      this.columns = new List<ColumnDefinition>();
+      for(var coldef in columns)
+      {
+         this.columns.add(new ColumnDefinition.fromMap(coldef));
+      }      
 
+      // add _originalIndex field
       this._addIndexField(rows);
       this._addIndexField(originalrows);
       
@@ -223,7 +254,7 @@ class Table
          "smallint" : 0,
          "decimal"  : 0.0, 
          "float"    : 0.0,      
-         "datetime" : DateTime.parse("1899-12-30 T12:00:00")
+         "datetime" : DateTime.parse("1899-12-30T12:00:00")
       };
       if(def.containsKey(type)) return def[type];
       throw "data type $type not supported";

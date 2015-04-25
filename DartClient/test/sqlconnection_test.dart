@@ -48,7 +48,7 @@ void defineTests()
        
        //await conn.execute("CREATE DATABASE sql_test");
        await conn.execute("USE sql_test");
-       await conn.execute("CREATE TABLE Customers (Id INT IDENTITY PRIMARY KEY, Name VARCHAR(64), Age INT, Born DATETIME)");
+       //await conn.execute("CREATE TABLE Customers (Id INT IDENTITY PRIMARY KEY, Name VARCHAR(64), Age INT, Born DATETIME)");
        
        int n = await conn.queryValue("SELECT COUNT(*) FROM Customers");
        
@@ -64,7 +64,10 @@ void defineTests()
        cust.rows.add(r);
        
        await cust.post();
-              
+       
+       n = await conn.queryValue("SELECT COUNT(*) FROM Customers");
+       expect(n, 1);
+       
        //await conn.execute("DROP TABLE Customers");
 
        //await conn.execute("DROP DATABASE sql_test");
