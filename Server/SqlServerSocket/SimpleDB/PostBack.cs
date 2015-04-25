@@ -14,6 +14,7 @@ namespace SimpleDB
    // keep in sync with Client.DataTable
    public class ChangeSet
    {
+      public string tablename;
       public List<Row> inserted;
       public List<Row> deleted;
       public List<Row> updated_new;
@@ -22,7 +23,7 @@ namespace SimpleDB
 
    public class PostBackManager
    {
-      public static string DoPostBack(Database DB, string tablename, ChangeSet changes)
+      public static dynamic DoPostBack(Database DB, ChangeSet changes)
       {
          // build list of used column names
          List<string> used_columns = new List<string>();
@@ -35,7 +36,7 @@ namespace SimpleDB
 
          // gets schema about the rows we're working on
          var namelist = StringUtils.CommaList(used_columns); 
-         var schema = DB.GetSchema(used_columns.ToArray(),tablename);     
+         var schema = DB.GetSchema(used_columns.ToArray(), changes.tablename);     
          var columndefs = new ColumnDefinitions(schema);
          var idcolumn = columndefs.GetIdentityColumn();
          var used_columns_without_id = new List<string>(used_columns);
@@ -49,7 +50,7 @@ namespace SimpleDB
             for(int t=0;t<changes.inserted.Count;t++)
             {
                var row = changes.inserted[t];
-               int inserted_id = DoInsert(DB, row, columndefs, used_columns_without_id, tablename);
+               int inserted_id = DoInsert(DB, row, columndefs, used_columns_without_id, changes.tablename);
                identities.Add(inserted_id);
             }
       
@@ -57,7 +58,7 @@ namespace SimpleDB
             for(int t=0;t<changes.deleted.Count;t++)
             {
                var row = changes.deleted[t];
-               DoDelete(DB, row, columndefs, used_columns, tablename);
+               DoDelete(DB, row, columndefs, used_columns, changes.tablename);
             }
 
             // updates
@@ -65,7 +66,7 @@ namespace SimpleDB
             {
                var row = changes.updated_new[t];
                var old = changes.updated_old[t];
-               DoUpdate(DB, row, old, columndefs, used_columns, tablename);
+               DoUpdate(DB, row, old, columndefs, used_columns, changes.tablename);
             }
          }
          catch(PostBackException ex)
@@ -87,10 +88,8 @@ namespace SimpleDB
             idcolumn = idcolumn,
             identities = identities
          };
-      
-         string json = JsonConvert.SerializeObject(postback_response);            
-      
-         return json;
+            
+         return postback_response;            
       }
 
       private static int DoInsert(Database DB, Row row, ColumnDefinitions schema, List<string> used_columns_without_id, string tablename)
@@ -110,9 +109,9 @@ namespace SimpleDB
             var parm = new SqlParameter();
             parm.Direction = ParameterDirection.Input;                   
             parm.ParameterName = string.Format("@p{0}",i);
-            parm.SqlDbType = Database.TypeNameToSqlDbType(schema[cname].DataTypeName);         
+            parm.SqlDbType = Database.TypeNameToSqlDbType(schema.Column(cname).DataTypeName);         
             parm.Value = Database.ToSqlValue(row[cname],parm.SqlDbType);                     
-            parm.IsNullable = schema[cname].AllowDBNull;
+            parm.IsNullable = schema.Column(cname).AllowDBNull;
             cmd.Parameters.Add(parm);
          }
         
@@ -167,9 +166,9 @@ namespace SimpleDB
             var parm = new SqlParameter();
             parm.Direction = ParameterDirection.Input;                   
             parm.ParameterName = string.Format("@p{0}",i);
-            parm.SqlDbType = Database.TypeNameToSqlDbType(schema[cname].DataTypeName);         
+            parm.SqlDbType = Database.TypeNameToSqlDbType(schema.Column(cname).DataTypeName);         
             parm.Value = Database.ToSqlValue(old[cname],parm.SqlDbType);                     
-            parm.IsNullable = schema[cname].AllowDBNull;
+            parm.IsNullable = schema.Column(cname).AllowDBNull;
             cmd.Parameters.Add(parm);
          }
 
@@ -216,9 +215,9 @@ namespace SimpleDB
             var parm = new SqlParameter();
             parm.Direction = ParameterDirection.Input;                   
             parm.ParameterName = string.Format("@p{0}",i);
-            parm.SqlDbType = Database.TypeNameToSqlDbType(schema[cname].DataTypeName);         
+            parm.SqlDbType = Database.TypeNameToSqlDbType(schema.Column(cname).DataTypeName);         
             parm.Value = Database.ToSqlValue(row[cname],parm.SqlDbType);                     
-            parm.IsNullable = schema[cname].AllowDBNull;
+            parm.IsNullable = schema.Column(cname).AllowDBNull;
             cmd.Parameters.Add(parm);
          }
         
@@ -228,9 +227,9 @@ namespace SimpleDB
             var parm = new SqlParameter();
             parm.Direction = ParameterDirection.Input;                   
             parm.ParameterName = string.Format("@p{0}",i+newnames.Count);
-            parm.SqlDbType = Database.TypeNameToSqlDbType(schema[cname].DataTypeName);         
+            parm.SqlDbType = Database.TypeNameToSqlDbType(schema.Column(cname).DataTypeName);         
             parm.Value = Database.ToSqlValue(old[cname],parm.SqlDbType);                     
-            parm.IsNullable = schema[cname].AllowDBNull;
+            parm.IsNullable = schema.Column(cname).AllowDBNull;
             cmd.Parameters.Add(parm);
          }
 

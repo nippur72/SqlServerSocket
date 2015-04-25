@@ -5,6 +5,8 @@ import "dart:io";
 import "dart:async";
 import "dart:convert";
 
+import "table.dart";
+
 class SqlConnection
 {
    Socket _socket;
@@ -48,20 +50,22 @@ class SqlConnection
       
       String json = JSON.encode({ "type": "open", "text": _connectionString });
       
-      _SendCommand(json).then((result) {
+      _SendCommand(json).then((result) 
+      {
          var res = _parseResult(result);
-         if(res.isOk)
+         if(res is _OkResult)
          {
            _connected = true;
            connectCompleter.complete(true);
          }
-         else if(res.isError)
+         else if(res is _ErrorResult)
          {
            _connected = false;
            connectCompleter.completeError(res.error);         
          }
          else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
          _connected = false;
          connectCompleter.completeError(err);
@@ -82,22 +86,83 @@ class SqlConnection
       _SendCommand(json).then((risp)
       {
          var res = _parseResult(risp);
-         if(res.isOk) 
+         
+         if(res is _OkResult) 
          {
             _connected = false;
             disconnectCompleter.complete(true);
          }
-         else if(res.isError)
+         else if(res is _ErrorResult)
          {           
-           disconnectCompleter.completeError(res.error);           
+            disconnectCompleter.completeError(res.error);           
          }
          else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
         disconnectCompleter.completeError(err);    
       });               
       
       return disconnectCompleter.future;     
+   }
+   
+   /// launch a query on the database, returning a table
+   Future<Table> queryTable(String SQL)
+   {      
+      if(!connected) throw "not connected";
+      
+      String json = JSON.encode({ "type": "table", "text": SQL });
+      
+      Completer compl = new Completer(); 
+      _SendCommand(json).then((result)
+      {
+          var res = _parseResult(result);
+
+               if(res is _ErrorResult) compl.completeError(res.error);          
+          else if(res is _TableResult) 
+          {
+              var tres = res as _TableResult;              
+              Table tab = new Table(this, tres.tableName, tres.rows, tres.columns);
+              compl.complete(tab);
+          }
+          else throw "unknown response";
+      })
+      .catchError((err)
+      {
+          compl.completeError(err);  
+      });
+      return compl.future;
+   }
+
+   Future<PostBackResponse> postBack(ChangeSet chg)
+   {      
+      if(!connected) throw "not connected";
+      
+      String params = JSON.encode(chg);
+      
+      String json = JSON.encode({ "type": "postback", "text": params });
+      
+      Completer compl = new Completer(); 
+      _SendCommand(json).then((result)
+      {
+          var res = _parseResult(result);
+
+               if(res is _ErrorResult) compl.completeError(res.error);          
+          else if(res is _PostBackResult) 
+          {
+              var tres = res as _PostBackResult; 
+              PostBackResponse resp = new PostBackResponse();
+              resp.idcolumn = tres.idcolumn;
+              resp.identities = tres.identities;              
+              compl.complete(resp);
+          }
+          else throw "invalid postback response";
+      })
+      .catchError((err)
+      {
+          compl.completeError(err);  
+      });
+      return compl.future;           
    }
    
    /// launch a query on the database, returning all rows
@@ -111,16 +176,11 @@ class SqlConnection
       _SendCommand(json).then((result)
       {
           var res = _parseResult(result);
-          if(res.isError)
-          {
-              compl.completeError(res.error);
-          }
-          else if(res.isData)
-          {
-              compl.complete(res.rows);
-          }
+               if(res is _ErrorResult) compl.completeError(res.error);         
+          else if(res is _QueryResult) compl.complete(res.rows);          
           else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
           compl.completeError(err);  
       });
@@ -138,17 +198,16 @@ class SqlConnection
       _SendCommand(json).then((result)
       {
           var res = _parseResult(result);
-          if(res.isError)
-          {
-              compl.completeError(res.error);
-          }
-          else if(res.isData)
-          {
+          
+               if(res is _ErrorResult) compl.completeError(res.error);          
+          else if(res is _QueryResult)
+          {   
               if(res.rows.length==0) compl.complete(null);
               else                   compl.complete(res.rows[0]);
           }
           else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
           compl.completeError(err);  
       });
@@ -166,17 +225,16 @@ class SqlConnection
       _SendCommand(json).then((result)
       {
           var res = _parseResult(result);
-          if(res.isError)
-          {
-              compl.completeError(res.error);
-          }
-          else if(res.isData)
+
+               if(res is _ErrorResult) compl.completeError(res.error);         
+          else if(res is _QueryResult)
           {
               if(res.rows.length==0) compl.complete(null);
               else                   compl.complete(res.rows[0]["value"]);
           }
           else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
           compl.completeError(err);  
       });
@@ -194,17 +252,16 @@ class SqlConnection
       _SendCommand(json).then((result)
       {
           var res = _parseResult(result);
-          if(res.isError)
-          {
-              compl.completeError(res.error);
-          }
-          else if(res.isData)
+          
+               if(res is _ErrorResult) compl.completeError(res.error);          
+          else if(res is _QueryResult)
           {
               if(res.rows.length==0) compl.complete(-1);
               else                   compl.complete(res.rows[0]["rowsAffected"]);
           }
           else throw "unknown response";
-      }).catchError((err)
+      })
+      .catchError((err)
       {
           compl.completeError(err);  
       });
@@ -259,60 +316,89 @@ class SqlConnection
    }
    
    /// translates generic json result into a Result type
-   Result _parseResult(String json)
+   dynamic _parseResult(String json)
    {
-      Map result = JSON.decode(json);
+      Map result = JSON.decode(json);           
       
-      var r = new Result();
-      
-      if(result["type"]=="ok") 
-      {
-         r.type = result["type"];
-         return r;
-      }  
-      else if(result["type"]=="error")
-      {
-        r.type = result["type"];
-        r.error = result["error"];
-        return r;      
-      }
-      else if(result["type"]=="data")
-      {
-        r.type    = result["type"];
-        r.rows    = result["rows"];
-        r.columns = result["columns"]; 
-        _fixTypes(r);
-        return r;      
-      }
+           if(result["type"]=="ok")       return new _OkResult("ok");      
+      else if(result["type"]=="error")    return new _ErrorResult(result["error"]);      
+      else if(result["type"]=="query")    return new _QueryResult(result["rows"], result["columns"]);            
+      else if(result["type"]=="table")    return new _TableResult(result["tablename"], result["rows"], result["columns"]);
+      else if(result["type"]=="postback") return new _PostBackResult(result["idcolumn"], result["identities"]);
       else throw "unknown response";
-   }   
+   }         
+}
+
+class _ErrorResult
+{
+   String error;
    
+   _ErrorResult(String error)
+   {
+      this.error = error;
+   }
+}
+
+class _OkResult
+{
+   String ok;
+   
+   _OkResult(String ok)
+   {
+      this.ok = ok;
+   }
+}
+
+class _QueryResult
+{
+   List rows;
+   Map  columns;
+
+   _QueryResult(List rows, Map columns)
+   {
+       this.rows = rows;
+       this.columns = columns;
+       _fixTypes();
+   }
+
    /// fix string data type coming from JSON into proper Dart data type
-   void _fixTypes(Result r)
+   void _fixTypes()
    {
       void _fixDateTime(String columnName)
       {
-         for(int t=0;t<r.rows.length;t++) r.rows[t][columnName] = DateTime.parse(r.rows[t][columnName]);         
+         for(int t=0;t<rows.length;t++) rows[t][columnName] = DateTime.parse(rows[t][columnName]);         
       }
       
-      for(var fname in r.columns.keys)
+      for(var fname in columns.keys)
       {
-         if(r.columns[fname]=="datetime") _fixDateTime(fname);
+         if(columns[fname]=="datetime") _fixDateTime(fname);
       }
    }  
 }
 
-/// implements the type of results returning from SqlServerSocket.exe
-/// a result can be either "ok", "error" or "data".
-class Result
+class _TableResult
 {
-   String type;
-   String error;
-   List   rows;
-   Map    columns;
+   String tableName;
+   List rows;   
+   List columns;
    
-   bool get isOk    => type=="ok";
-   bool get isError => type=="error";
-   bool get isData  => type=="data";
+   _TableResult(String tableName, List rows, List columns)
+   {
+       this.tableName = tableName;
+       this.rows = rows;
+       this.columns = columns;       
+   }
+}
+
+class _PostBackResult
+{
+   String idcolumn;
+   List<int> identities;
+   
+   _PostBackResult(String idcolumn, List<int> identities)
+   {
+       this.idcolumn = idcolumn;
+       this.identities = identities;
+   }
 }
 

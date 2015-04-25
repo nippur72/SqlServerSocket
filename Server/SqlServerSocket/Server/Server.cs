@@ -214,8 +214,46 @@ public class Server
             st.disconnect = true;
             return new OkResult();
         }
+        else if(cmd.type=="table")
+        {
+            if(st.database==null) return new ErrorResult("not connected");
+
+            try
+            {
+               var table = st.database.QueryTable(cmd.text);                                                                                       
+               return new TableResult(table);
+            }
+            catch(Exception ex)
+            {
+               return new ErrorResult(ex.Message);
+            }
+        }
+        else if(cmd.type=="postback")
+        {
+            if(st.database==null) return new ErrorResult("not connected");
+
+            ChangeSet changes = null;
+            try
+            {
+               changes = JsonConvert.DeserializeObject<ChangeSet>(cmd.text);
+            }
+            catch(Exception ex)
+            {
+               return new ErrorResult("invalid postback command");
+            }
+
+            try
+            {
+               var response = PostBackManager.DoPostBack(st.database, changes);               
+               return new PostBackResult(response.idcolumn,response.identities);
+            }
+            catch(Exception ex)
+            {
+               return new ErrorResult(ex.Message);
+            }
+        }
         else if(cmd.type=="query")
-         {
+        {
             if(st.database==null) return new ErrorResult("not connected");
 
             try
@@ -304,9 +342,39 @@ public class DataResult
 
    public DataResult(QueryResult data)
    {
-      type = "data";
+      type = "query";
       rows = data.rows;
       columns = data.columns;
+   }
+}
+
+public class TableResult
+{
+   public string type;
+   public List<Row> rows;
+   public string tablename;
+   public ColumnDefinitions columns;     
+
+   public TableResult(QueryTableResult data)
+   {
+      type = "table";
+      rows = data.rows;
+      tablename = data.TableName;
+      columns = data.columns;
+   }
+}
+
+public class PostBackResult
+{
+   public string type;
+   public string idcolumn;
+   public List<int> identities;
+
+   public PostBackResult(string idcolumn, List<int> identities)
+   {
+      this.type = "postback";
+      this.idcolumn = idcolumn;
+      this.identities = identities;
    }
 }
 

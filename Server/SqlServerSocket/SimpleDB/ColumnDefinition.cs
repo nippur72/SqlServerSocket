@@ -6,7 +6,7 @@ using System.Data.SqlClient;
 
 namespace SimpleDB
 {   
-   public class ColumnDefinitions : Dictionary<string,ColumnDefinition> 
+   public class ColumnDefinitions : List<ColumnDefinition> 
    {
       public ColumnDefinitions(DataTable schema) : base()
       {
@@ -24,13 +24,27 @@ namespace SimpleDB
             cd.ColumnSize    = (int)    column["ColumnSize"];  
             cd.BaseTableName = (string) column["BaseTableName"];
             
-            this.Add(cd.ColumnName,cd);          
+            this.Add(cd);          
          }
       }                                              
 
+      public ColumnDefinition Column(string columnName)
+      {
+         return this[IndexOf(columnName)];
+      }
+
+      public int IndexOf(string columnName)
+      {
+         for(int t=0;t<this.Count;t++)
+         {
+            if(this[t].ColumnName==columnName) return t;
+         }
+         return -1;
+      }
+
       public string GetIdentityColumn()
       {
-         foreach(var cd in this.Values)
+         foreach(var cd in this)
          {
             if(cd.IsIdentity) return cd.ColumnName;
          }
@@ -41,7 +55,7 @@ namespace SimpleDB
       {
          string tn = "";
 
-         foreach(var cd in this.Values)
+         foreach(var cd in this)
          {
             if(!cd.IsReadOnly)
             {
