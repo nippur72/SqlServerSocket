@@ -5,6 +5,7 @@ library sql_server_socket_test;
 
 import '../lib/sqlconnection.dart';
 import '../lib/table.dart';
+import '../lib/sqlformats.dart';
 
 import 'dart:async';
 import 'package:unittest/unittest.dart';
@@ -28,11 +29,31 @@ Future defineTests() async
    await conn.execute("USE sql_server_socket_test_db");
    await conn.execute("CREATE TABLE Customers (Id INT IDENTITY PRIMARY KEY, Name VARCHAR(64), Age INT, Born DATETIME, HasWebSite BIT NOT NULL)");
    await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite) VALUES ('Bob' ,33, 0)");
-   await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite) VALUES ('Tom' ,42, 1)");
+   await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite, Born) VALUES ('Tom' ,42, 1, ${sqlDate(new DateTime(1972,05,03))})");
    await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite) VALUES ('Mary',18, 1)");
    await conn.close();
    
    conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=sql_server_socket_test_db;Trusted_Connection=yes;");
+
+   group("sqlformats tests", ()  
+   {
+      test("sqlDate", ()
+      {
+         var d = sqlDate(new DateTime(1980,5,3));         
+         expect(d, "CONVERT(DATETIME,'1980-05-03 00:00:00.000',102)");
+      });
+
+      test("sqlBool", ()
+      {                 
+         expect(sqlBool(false), "0");
+         expect(sqlBool(true ), "1");         
+      });
+
+      test("sqlString", ()
+      {                 
+         expect(sqlString("AH, L'AMOUR! C'EST TERRIBLE!"), "'AH, L''AMOUR! C''EST TERRIBLE!'");                  
+      });
+   });
 
    group('SqlConnection tests', ()  
    {   
@@ -85,6 +106,10 @@ Future defineTests() async
        // Bob does not have a website
        var name = await conn.queryValue("SELECT Name FROM Customers WHERE HasWebSite=0");
        expect(name,"Bob");
+       
+       var tomsborn = await conn.queryValue("SELECT Born FROM Customers WHERE Name = 'Tom'");
+       expect(tomsborn is DateTime,true);
+       expect(tomsborn, new DateTime(1972,05,03) );
 
        await conn.close();
     });
