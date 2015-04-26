@@ -1,16 +1,20 @@
 # SqlServerSocket
 
-This package is a library for the Dart language that allows to interact with **Microsoft SQL Server**  by the use of a socket-based service (`SqlServerSocket.exe`) that runs in the background. 
+Connects to **Microsoft SQL Server** from the [Dart](dartlang.org) language.
 
-The service acts like a bridge between SQL Server and Dart. It's written in C# and uses native .NET drivers to interact with SQL Server. 
+Connection to SQL Server is achieved by that use of a specific service (`SqlServerSocket.exe`, included here) that runs in the background and has to be started before the Dart program.
+
+This library allows to run SQL queries on the server and have them returned as native Dart objects (Lists, Maps) with the correct data types.
+
+There is also a dedicated class `Table` that simplifies CRUD operations on datasets without the need of writing the SQL queries to insert, update or delete. 
 
 ## How to install it
 
 1. Install and execute `SqlServerSocket.exe` in the background on the server machine where SQL Server is installed. The program will listen for connection coming from Dart on the local port `10980`.
 
-2. On the Dart side (server), install and reference the package `SqlServerSocket`.
+2. On the Dart side (server), install and reference the package `sql_server_socket`.
 
-## Usage
+## Basic usage
 
 Some dart examples (using `async` and `await`): 
 
@@ -22,7 +26,7 @@ var conn = new SqlConnection("SERVER=localhost;Database=mydb;Trusted_connection=
 await conn.open();
 
 // runs a query returning a single value
-var dbname = await conn.queryValue("SELECT COUNT(*) FROM Customers");
+var howmany = await conn.queryValue("SELECT COUNT(*) FROM Customers");
 
 // runs a query returning a single row
 var myFirstCustomer = await conn.querySingle("SELECT name,age FROM Custormers");
@@ -43,9 +47,31 @@ print("zeroed $n customers");
 await conn.close();
 ```
 
-## Managing Table objects
+## SQL string formatting
 
-Complex datasets operations can be done by the use of the `Table` object that handles inserts, deletes and updates, sending to the database only the changed data and retrieving identity values after inserts.
+When composing SQL queries, strings, booleans and datetimes needs to be formatted according the SQL Server syntax. There are these helper functions you can use in your string interpolations:
+
+* sqlBool()
+* sqlString()
+* sqlDate()
+
+Example:
+
+```
+var custName = "J'EROME";
+var accept = true;
+conn.queryValue("""
+                 SELECT COUNT(*) 
+                 FROM Customers 
+                 WHERE Name = ${sqlString(custName)} 
+                       AND TimeStamp > ${sqlDate(new DateTime.now())}
+                       AND AcceptFlag = ${sqlBool(accept)}
+                """);
+```
+
+## Using the Table object
+
+Complex datasets operations can be done by the use of the `Table` object. It handles row inserts, deletes and updates, sending to the database only the changed data and retrieving identity values after inserts.
 
 Example:
 
@@ -66,8 +92,8 @@ cust.rows.add(row);
 // save changes to databases
 await cust.post();
 
-// Id field, previously 0, has now the idenity number assigned by the DB
-print("last inserted customer = ${row['Id']}");
+// "Id" field, previously 0, has now the identity number assigned by the database
+print("newly inserted customer has Id ${row['Id']}");
 
 // update customers
 cust.rows[0]["Age"] = 42;
