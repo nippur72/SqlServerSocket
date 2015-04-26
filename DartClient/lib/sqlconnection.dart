@@ -1,5 +1,5 @@
 
-library SqlServerSocket;
+library sql_server_socket;
 
 import "dart:io";
 import "dart:async";
@@ -39,7 +39,7 @@ class SqlConnection
       }
       catch(ex)
       {
-         throw "can't connect";         
+         throw "can't connect to ${_address}:${_port} -- $ex";         
       }
        
       //Establish the onData, and onDone callbacks

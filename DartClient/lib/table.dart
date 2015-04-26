@@ -3,6 +3,7 @@ import "dart:async";
 
 import "sqlconnection.dart";
 
+// information about a column as filled by SQL Server
 class ColumnDefinition
 {
    String ColumnName;
@@ -27,6 +28,7 @@ class ColumnDefinition
    }
 }
 
+// stores modified rows to send to server for updating the dataset 
 class ChangeSet
 {
    String tablename;
@@ -42,16 +44,22 @@ class ChangeSet
       "deleted"     : deleted, 
       "updated_new" : updated_new,
       "updated_old" : updated_old
-   };
-   
+   };   
 }
 
+// response from server after a "postback", containing IDENTITY numbers 
+// assigned by the database server after an INSERT operation.
+// These numbers are used to update the local copy of the Table
 class PostBackResponse
 {
    String idcolumn;
    List<int> identities;
 }
 
+// table result from "queryTable". 
+//
+// Insert, update or delete operations done on the Table object
+// can be sent back to server via Table.post().
 class Table
 {
    SqlConnection _conn;   
@@ -59,9 +67,15 @@ class Table
    List<Map<String,dynamic>> rows;   
    List<ColumnDefinition> columns;        
    
-   List<Map<String,dynamic>> originalrows;
+   List<Map<String,dynamic>> originalrows;       
    
-   bool modified;  
+   static const originalIndex = "_originalIndex";
+   
+   bool get modified
+   {
+      var chg = _detectChanges();      
+      return (chg.inserted.length!=0 || chg.deleted.length!=0 || chg.updated_new.length!=0);
+   }
    
    Table(SqlConnection conn, String tableName, List<Map<String,dynamic>> rows, List<Map<String,String>> columns)
    {
@@ -70,7 +84,7 @@ class Table
       this.rows = rows;
       
       // keep a shallow copy of original rows for compare
-      this.originalrows = _copyRows(rows);
+      this.originalrows = _copyRows(this.rows);
       
       // build column definitions
       this.columns = new List<ColumnDefinition>();
@@ -80,23 +94,23 @@ class Table
       }      
 
       // add _originalIndex field
-      this._addIndexField(rows);
-      this._addIndexField(originalrows);
+      this._addOriginalIndexField(this.rows);
+      this._addOriginalIndexField(this.originalrows);
       
-      // TODO fix types
-      
-      modified = false;
+      // TODO fix types         
    }
    
-   void _addIndexField(List rows)
+   /// adds an hidden field "_originalIndex" to keep track of changes done on the rows
+   void _addOriginalIndexField(List rows)
    {
       for(int t=0;t<rows.length;t++)
       {
          var r = rows[t];
-         r["_originalIndex"] = t+1;  // number starting from 1, so 0=new insert
+         r[originalIndex] = t;  
       }      
    }
    
+   /// creates a shallow copy of a whole list of rows
    List<Map<String,dynamic>> _copyRows(List<Map<String,dynamic>> rows)
    {
       List<Map<String,dynamic>> result = [];
@@ -107,11 +121,13 @@ class Table
       return result;
    }
    
+   /// creates a shallow copy of a row
    Map<String,dynamic> _copyRow(Map row)
    {      
       return new Map.from(row);
    }
    
+   /// compare two rows
    bool _areRowEquals(Map<String,dynamic> row1, Map<String,dynamic> row2)
    {
       if(row1.length != row2.length) return false;
@@ -123,6 +139,7 @@ class Table
       return true;
    }
    
+   /// creates a new row for the table, filled with default values 
    Map<String,dynamic> newRow()
    {
       Map<String,dynamic> new_row = new Map<String,dynamic>(); 
@@ -135,6 +152,7 @@ class Table
       return new_row;
    }
    
+   /// sends table modifications to the server
    Future post() async
    {
       var postCompleter = new Completer();
@@ -142,8 +160,8 @@ class Table
       // calculate changes
       ChangeSet chg = _detectChanges();
 
-      // if no changes at all, does not call server
-      if(!this.modified) return postCompleter.future;  
+      // if no changes, does not call server
+      if(chg.inserted.length==0 && chg.deleted.length==0 && chg.updated_new.length==0) return postCompleter.future;  
       
       _conn.postBack(chg).then((response)
       {
@@ -151,16 +169,15 @@ class Table
          var idcolumn = response.idcolumn;
          for(int t=0;t<response.identities.length;t++)
          {
-            var row = chg.inserted[t];             
+            var row = chg.inserted[t];  // row points to this.rows           
             row[idcolumn] = response.identities[t];
          }
          
          // adds index field to inserted rows
-         _addIndexField(this.rows);
+         _addOriginalIndexField(this.rows);
          
          // update is ok, so accept changes
-         this.originalrows = _copyRows(rows);
-         this.modified = false;
+         this.originalrows = _copyRows(rows);         
 
          postCompleter.complete();                 
       })
@@ -172,6 +189,8 @@ class Table
       return postCompleter.future;
    }   
    
+   /// detect changes occurred on the table by comparing its rows with "originalrows"
+   /// and build a ChangeSet result to send to the server 
    ChangeSet _detectChanges()
    {
       ChangeSet chg = new ChangeSet();
@@ -186,24 +205,24 @@ class Table
       {
          var r = rows[t];
 
-         if(!r.containsKey("_originalIndex"))
+         if(!r.containsKey(originalIndex))
          {                         
              chg.inserted.add(r); 
          }
          else
          {
-             remaining.add(r["_originalIndex"]);
+             remaining.add(r[originalIndex]);
          }
       }
 
       // deleted: rows in original that does not appear in remaining rows 
       for(int t=0;t<originalrows.length;t++)
       {
-         if(!remaining.contains(originalrows[t]["_originalIndex"]))
+         if(!remaining.contains(originalrows[t][originalIndex]))
          {
             // row was deleted                       
             var deleted_row = _copyRow(originalrows[t]);
-            deleted_row.remove("_originalIndex");            
+            deleted_row.remove(originalIndex);            
             chg.deleted.add(deleted_row); 
          }
       }
@@ -211,19 +230,20 @@ class Table
       // updated: rows not inserted that does not match original
       for(var t=0;t<rows.length;t++)
       {
-         if(!rows[t].containsKey("_originalIndex")) continue;
+         if(!rows[t].containsKey(originalIndex)) continue;
                   
          var current_row = rows[t];
-         var original_row = originalrows[current_row["_originalIndex"]];
+         var index = current_row[originalIndex]; 
+         var original_row = originalrows[index];
 
          if(!_areRowEquals(current_row, original_row))
          {
             // rows are different
-            var cr = _copyRow(current_row ); cr.remove("_originalIndex");
-            var or = _copyRow(original_row); or.remove("_originalIndex"); 
+            var cr = _copyRow(current_row ); cr.remove(originalIndex);
+            var or = _copyRow(original_row); or.remove(originalIndex); 
             
-            // strips from current data that are equal
-            var fields = cr.keys;
+            // strips from row fields that are equal
+            var fields = new List.from(cr.keys); // copy to a new list to avoid concurrent cancellation
             for(var fieldname in fields)
             {
                if(cr[fieldname]==or[fieldname]) 
@@ -238,12 +258,10 @@ class Table
          }
       }
 
-      // updates modified property
-      this.modified = (chg.inserted.length!=0 || chg.deleted.length!=0 || chg.updated_new.length!=0);
-
       return chg;
    }      
-    
+   
+   /// returns a default value for the SQL Server type specified
    dynamic _defaultValue(String type)
    {
       Map def = 
@@ -258,11 +276,13 @@ class Table
       };
       if(def.containsKey(type)) return def[type];
       throw "data type $type not supported";
-   }    
+   }
+   
+   /// undo changes on the table since last read or post()
+   void cancel()
+   {
+      // keep a shallow copy of original rows for compare
+      this.rows = _copyRows(originalrows);         
+   }   
 }
-
-
-
-
-
 
