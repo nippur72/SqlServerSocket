@@ -17,6 +17,6 @@ public class StateObject
     public const int BufferSize = 1024;            // Size of receive buffer.    
     public byte[] buffer = new byte[BufferSize];   // Receive buffer.    
     public StringBuilder sb = new StringBuilder(); // Received data string.    
-    public Database database = null;               // database connection
+    public Database database = new Database();     // database connection
     public bool disconnect = false;                
 }

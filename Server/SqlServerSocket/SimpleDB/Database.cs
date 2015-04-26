@@ -12,7 +12,7 @@ namespace SimpleDB
 {   
    public class Database : IDisposable
    {      
-      public string Connessione; 
+      public string connectionString; 
       public int TimeOut;
             
       public SqlConnection Conn;                        
@@ -20,21 +20,11 @@ namespace SimpleDB
         
       public Database()
       {      
-         Connessione = ""; 
+         connectionString = ""; 
          Conn = new SqlConnection();
          Trans = null;                                   
          TimeOut = 15;                 
       }
-
-      public Database(string conn) : this()
-      {
-         Connessione = conn;
-      }      
-
-      public Database(SqlConnection sqlconn) : this()
-      {
-         Conn = sqlconn;
-      }      
 
       public void Dispose()
       {      
@@ -54,10 +44,18 @@ namespace SimpleDB
       {        
          Dispose(false);
       }
+
+      public bool Connected
+      {
+         get 
+         {
+            return Conn.State == ConnectionState.Open;
+         }
+      }
                                                
       public void Open()
       {
-         Conn.ConnectionString = Connessione;                           
+         Conn.ConnectionString = connectionString;                           
          Conn.Open();            
       }  
       
@@ -207,9 +205,17 @@ namespace SimpleDB
 
                result.rows.Add(row);
             } 
-            else result = null; // 0-rows results in null response
+         }         
+
+         // if empty result, simulates a null value
+         if(result.rows.Count==0)
+         {
+            var nullRow = new Row();
+            nullRow.Add("value", null);
+            result.rows.Add(nullRow);
+            result.columns.Add("value","null");
          }
-         else result = null; // 0-rows results in null response
+
          dr.Close();
          cmd.Dispose();
          return result;                         

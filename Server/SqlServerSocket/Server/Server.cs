@@ -161,12 +161,12 @@ public class Server
             Socket handler = (Socket) ar.AsyncState;
 
             // Complete sending the data to the remote device.
-            int bytesSent = handler.EndSend(ar);
+            int bytesSent = handler.EndSend(ar);  
             //Console.WriteLine("Sent {0} bytes to client.", bytesSent);            
         } 
         catch(Exception e) 
         {
-            Console.WriteLine(e.ToString());
+            Console.WriteLine(e.ToString());   
         }
     }
 
@@ -192,11 +192,11 @@ public class Server
 
         if(cmd.type=="open")
         {
-            if(st.database!=null) return new ErrorResult("already connected");
+            if(st.database.Connected) return new ErrorResult("already connected");
 
             try
             {               
-               st.database = new SimpleDB.Database(cmd.text);
+               st.database.connectionString = cmd.text;
                st.database.Open();
                return new OkResult();
             }
@@ -207,16 +207,15 @@ public class Server
         }
         else if(cmd.type=="close")
         {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
-            st.database.Close();
-            st.database = null;
+            st.database.Close();            
             st.disconnect = true;
             return new OkResult();
         }
         else if(cmd.type=="table")
         {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
             try
             {
@@ -230,9 +229,9 @@ public class Server
         }
         else if(cmd.type=="postback")
         {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
-            ChangeSet changes = null;
+            ChangeSet changes;
             try
             {
                changes = JsonConvert.DeserializeObject<ChangeSet>(cmd.text);
@@ -254,7 +253,7 @@ public class Server
         }
         else if(cmd.type=="query")
         {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
             try
             {
@@ -268,7 +267,7 @@ public class Server
          }
          else if(cmd.type=="querysingle")
          {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
             try
             {
@@ -282,7 +281,7 @@ public class Server
          }
          else if(cmd.type=="queryvalue")
          {
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
             try
             {
@@ -296,7 +295,7 @@ public class Server
          }
          else if(cmd.type=="execute")
          {               
-            if(st.database==null) return new ErrorResult("not connected");
+            if(!st.database.Connected) return new ErrorResult("not connected");
 
             try
             {
@@ -331,6 +330,7 @@ public class ErrorResult
    {
       type = "error";
       error = message;
+      Console.WriteLine(message);
    }
 }
 

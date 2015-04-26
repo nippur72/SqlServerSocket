@@ -366,7 +366,10 @@ class _QueryResult
    {
       void _fixDateTime(String columnName)
       {
-         for(int t=0;t<rows.length;t++) rows[t][columnName] = DateTime.parse(rows[t][columnName]);         
+         for(int t=0;t<rows.length;t++) 
+         {
+            if(rows[t][columnName]!=null) rows[t][columnName] = DateTime.parse(rows[t][columnName]);
+         }   
       }
       
       for(var fname in columns.keys)
