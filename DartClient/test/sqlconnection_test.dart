@@ -8,7 +8,8 @@ import '../lib/table.dart';
 import '../lib/sqlformats.dart';
 
 import 'dart:async';
-import 'package:unittest/unittest.dart';
+
+import "package:guinness/guinness.dart";
 
 void main()
 {
@@ -20,8 +21,10 @@ void main()
 
 Future defineTests() async
 {  
-   // define a common database where to perform all tests
+   /// define a common database where to perform all tests
+   
    var conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=master;Trusted_Connection=yes;");
+   //var conn = new SqlConnection("Server=DEVIL\\SQLEXPRESS;Database=master;User Id=sa;Password=;");
    
    await conn.open();
    await conn.execute("IF EXISTS (SELECT name FROM master.sys.databases WHERE name = 'sql_server_socket_test_db') DROP DATABASE sql_server_socket_test_db");
@@ -32,85 +35,141 @@ Future defineTests() async
    await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite, Born) VALUES ('Tom' ,42, 1, ${sqlDate(new DateTime(1972,05,03))})");
    await conn.execute("INSERT INTO Customers (Name, Age, HasWebSite) VALUES ('Mary',18, 1)");
    await conn.close();
-   
+      
    conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=sql_server_socket_test_db;Trusted_Connection=yes;");
-
-   group("sqlformats tests", ()  
+   //conn = new SqlConnection("Server=DEVIL\\SQLEXPRESS;Database=sql_server_socket_test_db;User Id=sa;Password=;");
+  
+   describe("SQL formatting functions", ()
    {
-      test("sqlDate", ()
-      {
-         var d = sqlDate(new DateTime(1980,5,3));         
-         expect(d, "CONVERT(DATETIME,'1980-05-03 00:00:00.000',102)");
-      });
-
-      test("sqlBool", ()
-      {                 
-         expect(sqlBool(false), "0");
-         expect(sqlBool(true ), "1");         
-      });
-
-      test("sqlString", ()
-      {                 
-         expect(sqlString("AH, L'AMOUR! C'EST TERRIBLE!"), "'AH, L''AMOUR! C''EST TERRIBLE!'");                  
-      });
+       describe("sqlDate()", ()  
+       {
+          it("returns a SQL formatted date", ()
+          {
+             var d = sqlDate(new DateTime(1980,5,3));             
+             expect(d).toEqual("CONVERT(DATETIME,'1980-05-03 00:00:00.000',102)");             
+          });
+       });   
+    
+       describe("sqlBool()", ()  
+       {
+          it("converts true and false into 1 and 0", ()
+          {                 
+             expect(sqlBool(false)).toEqual("0");
+             expect(sqlBool(true )).toEqual("1");         
+          });
+       });
+    
+       describe("sqlString()", ()
+       {    
+          it("sqlString() formats a string to SQL, keeping care of single quotes", ()
+          {                 
+             expect(sqlString("ONE'TWO''THREE'''")).toEqual("'ONE''TWO''''THREE'''''''");                  
+          });
+       });
    });
 
-   group('SqlConnection tests', ()  
+   // TODO connection tests (ports/service running etc)
+   
+   describe('SqlConnection methods', ()  
    {   
-    // TODO connection tests (ports/service running etc)
-    
-    test('execute()', () async 
-    {
-       int n;
-       
-       await conn.open();
+      beforeEach(() async
+      {
+         await conn.open();
+      });
+      
+      afterEach(() async
+      {
+         await conn.close();
+      });
 
-       n = await conn.execute("UPDATE Customers SET HasWebSite=1 WHERE HasWebSite=1");
-       expect(n,2, reason: "returns the number of rows affected when are more than one");
+      describe("execute()", ()
+      {
+         it("returns the number of rows effected", () async
+         {
+            var n = await conn.execute("UPDATE Customers SET HasWebSite=1 WHERE HasWebSite=1");
+            expect(n).toEqual(2);
+         });
+         
+         it("does UPDATE commands correctly when not changing anything", () async
+         {
+            var n = await conn.execute("UPDATE Customers SET HasWebSite=1 WHERE HasWebSite=1");
+            expect(n).toEqual(2);
+         });
+            
+         it("returns 0 when nothing done", () async
+         {
+            var n = await conn.execute("UPDATE Customers SET HasWebSite=1 WHERE 0=1");
+            expect(n).toEqual(0);            
+         });
+            
+         it("does UPDATE commands correctly", () async
+         {
+            var n = await conn.execute("UPDATE Customers SET Name='Bill' WHERE Name='Bob'");
+            expect(n).toEqual(1);            
+ 
+            var n1 = await conn.queryValue("SELECT COUNT(*) FROM Customers WHERE Name='Bob'");
+            var n2 = await conn.queryValue("SELECT COUNT(*) FROM Customers WHERE Name='Bill'");
+            expect(n1).toEqual(0);
+            expect(n2).toEqual(1);
 
-       n = await conn.execute("UPDATE Customers SET HasWebSite=1 WHERE 0=1");
-       expect(n,0, reason: "returns the number of rows affected when are none");
-       
-       n = await conn.execute("UPDATE Customers SET Name='Bill' WHERE Name='Bob'");
-       expect(n,1);
-       
-       n = await conn.queryValue("SELECT COUNT(*) FROM Customers WHERE Name='Bob'");
-       expect(n,0);
+            n = await conn.execute("UPDATE Customers SET Name='Bob' WHERE Name='Bill'");  // reverts back 
+            expect(n).toEqual(1);
+         });         
+      });
+      
+      describe("queryValue()", ()
+      {
+         it("returns null when quering empty rows", () async
+         {                  
+            // no customers named 'Mark'
+            var n = await conn.queryValue("SELECT Name FROM Customers WHERE Name='Mark'");
+            expect(n,null);
+         });
+         
+         it("returns an integer value from query", () async
+         {
+            // Mary's Age is 18
+            var age = await conn.queryValue("SELECT Age FROM Customers WHERE Name='Mary'");
+            expect(age,18);
+         });
+         
+         it("returns a boolean from query", () async
+         {
+            // Mary has a web site
+            var bit = await conn.queryValue("SELECT HasWebSite FROM Customers WHERE Name='Mary'");
+            expect(bit,true);
+         });
+         
+         it("returns a String from query", () async
+         {
+            // Bob does not have a website
+            var name = await conn.queryValue("SELECT Name FROM Customers WHERE HasWebSite=0");
+            expect(name,"Bob");
+         });
 
-       n = await conn.execute("UPDATE Customers SET Name='Bob' WHERE Name='Bill'");  // reverts back 
-       expect(n,1);
-       
-       await conn.close();
+         it("returns null when queried field is null", () async
+         {         
+            // First customer does not have a date
+            var born = await conn.queryValue("SELECT Born FROM Customers");
+            expect(born,null);
+         });
+                  
+         it("returns a DateTime from query", () async
+         {            
+            var tomsborn = await conn.queryValue("SELECT Born FROM Customers WHERE Name = 'Tom'");
+            expect(tomsborn is DateTime).toEqual(true);
+            expect(tomsborn).toEqual(new DateTime(1972,05,03));
+         });               
+      });
+   });
+   
+   /*     
     });
-    
-    test('queryValue()', () async 
+
+    test('querySingle()', () async 
     {
        await conn.open();
-       
-       // no customers named 'Mark'
-       var n = await conn.queryValue("SELECT Name FROM Customers WHERE Name='Mark'");
-       expect(n,null, reason: "returns <null> when no rows");
-
-       // Mary's Age is 18
-       var age = await conn.queryValue("SELECT Age FROM Customers WHERE Name='Mary'");
-       expect(age,18);
-
-       // Mary has a web site
-       var bit = await conn.queryValue("SELECT HasWebSite FROM Customers WHERE Name='Mary'");
-       expect(bit,true);
-       
-       // First customer does not have a date
-       var born = await conn.queryValue("SELECT Born FROM Customers");
-       expect(born,null);
-
-       // Bob does not have a website
-       var name = await conn.queryValue("SELECT Name FROM Customers WHERE HasWebSite=0");
-       expect(name,"Bob");
-       
-       var tomsborn = await conn.queryValue("SELECT Born FROM Customers WHERE Name = 'Tom'");
-       expect(tomsborn is DateTime,true);
-       expect(tomsborn, new DateTime(1972,05,03) );
-
+              
        await conn.close();
     });
 
@@ -174,6 +233,8 @@ Future defineTests() async
     
     await conn.close();            
   });*/          
- });  
+ });
+ 
+  */  
 }
   
