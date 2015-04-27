@@ -356,25 +356,13 @@ class _QueryResult
 
    _QueryResult(List rows, Map columns)
    {
-       this.rows = rows;
-       this.columns = columns;
-       _fixTypes();
-   }
-
-   /// fix string data type coming from JSON into proper Dart data type
-   void _fixTypes()
-   {
-      void _fixDateTime(String columnName)
-      {
-         for(int t=0;t<rows.length;t++) 
-         {
-            if(rows[t][columnName]!=null) rows[t][columnName] = DateTime.parse(rows[t][columnName]);
-         }   
-      }
+      this.rows = rows;
+      this.columns = columns;
       
-      for(var fname in columns.keys)
+      // fix types 
+      for(var fieldName in columns.keys)
       {
-         if(columns[fname]=="datetime") _fixDateTime(fname);
+         TypeFixer.fixColumn(rows, fieldName, columns[fieldName]);
       }
    }  
 }
@@ -403,5 +391,21 @@ class _PostBackResult
        this.idcolumn = idcolumn;
        this.identities = identities;
    }
+}
+
+/// translates a JSON encoded SQL type into a Dart type
+class TypeFixer
+{
+   /// fix string data type coming from JSON into proper Dart data type
+   static void fixColumn(List<Map<String,dynamic>> rows, String columnName, String columnType)
+   {
+       if(columnType=="datetime")
+       {
+         for(int t=0;t<rows.length;t++) 
+         {
+            if(rows[t][columnName]!=null) rows[t][columnName] = DateTime.parse(rows[t][columnName]);
+         }   
+       }
+   }  
 }
 

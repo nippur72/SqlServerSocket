@@ -157,8 +157,7 @@ namespace SimpleDB
          {            
             if(dr.Read())
             {
-               Row row = new Row();
-               
+               Row row = new Row();               
                for(int t=0;t<dr.FieldCount;t++) 
                {
                   string fieldName = dr.GetName(t);
@@ -167,12 +166,10 @@ namespace SimpleDB
                
                   if(result.rows.Count==0) result.columns.Add(fieldName, dr.GetDataTypeName(t));                  
                }
-
                result.rows.Add(row);
-            } 
-            else result = null; // 0-rows results in null response
-         }
-         else result = null; // 0-rows results in null response
+            }             
+         }                          
+
          dr.Close();
          cmd.Dispose();
          return result;          
@@ -205,16 +202,7 @@ namespace SimpleDB
 
                result.rows.Add(row);
             } 
-         }         
-
-         // if empty result, simulates a null value
-         if(result.rows.Count==0)
-         {
-            var nullRow = new Row();
-            nullRow.Add("value", null);
-            result.rows.Add(nullRow);
-            result.columns.Add("value","null");
-         }
+         }                  
 
          dr.Close();
          cmd.Dispose();

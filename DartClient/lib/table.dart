@@ -97,7 +97,11 @@ class Table
       this._addOriginalIndexField(this.rows);
       this._addOriginalIndexField(this.originalrows);
       
-      // TODO fix types         
+      // fix types 
+      for(var column in this.columns)
+      {
+         TypeFixer.fixColumn(rows, column.ColumnName, column.DataTypeName);
+      }
    }
    
    /// adds an hidden field "_originalIndex" to keep track of changes done on the rows

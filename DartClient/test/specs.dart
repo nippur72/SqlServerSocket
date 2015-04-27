@@ -13,15 +13,12 @@ import "package:guinness/guinness.dart";
 
 void main()
 {
-   defineTests().then((_)
-   {
-      print("done");
-   });
+   defineSpecs().then((_){});
 }   
 
-Future defineTests() async
+Future defineSpecs() async
 {  
-   /// define a common database where to perform all tests
+   /// creates a common database where to perform all tests
    
    var conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=master;Trusted_Connection=yes;");
    //var conn = new SqlConnection("Server=DEVIL\\SQLEXPRESS;Database=master;User Id=sa;Password=;");
@@ -161,80 +158,75 @@ Future defineTests() async
             expect(tomsborn).toEqual(new DateTime(1972,05,03));
          });               
       });
-   });
-   
-   /*     
-    });
 
-    test('querySingle()', () async 
-    {
-       await conn.open();
-              
-       await conn.close();
-    });
+      describe("querySingle()", ()
+      {
+         it("returns null when quering empty rows", () async
+         {                  
+            // no customers named 'Mark'
+            var n = await conn.querySingle("SELECT Name FROM Customers WHERE Name='Mark'");
+            expect(n).toEqual(null);
+         });      
+         
+         it("returns a row from query", () async
+         {                  
+            // tom's row
+            var row = await conn.querySingle("SELECT * FROM Customers WHERE Name='Tom'");
+            expect(row is Map).toEqual(true);
+            expect(row).toEqual({ "Id": 2, "Name": 'Tom' , "Age": 42, "HasWebSite": true,  "Born": new DateTime(1972,05,03) });
+         });      
+      });   
 
-    /*
- test('test generic', () async 
- {       
-    var conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=master;Trusted_Connection=yes;");
-    
-    await conn.open();       
-    expect(conn.connected, true);
-    
-    await conn.execute("CREATE DATABASE sql_test");
-    await conn.execute("USE sql_test");
-    var dbName = await conn.queryValue("SELECT db_name()"); 
-    
-    expect(conn.connected, true);
-    expect(dbName, "sql_test");
-    
-    await conn.close();
-    
-    await conn.open();
-   
-    await conn.execute("DROP DATABASE sql_test");
-    
-    await conn.close();
-    expect(conn.connected, false);
- });
- 
- 
- test("table", () async
- {
-    var conn = new SqlConnection("Server=localhost\\SQLEXPRESS;Database=master;Trusted_Connection=yes;");
-    
-    await conn.open();              
-    
-    //await conn.execute("CREATE DATABASE sql_test");
-    await conn.execute("USE sql_test");
-    //await conn.execute("CREATE TABLE Customers (Id INT IDENTITY PRIMARY KEY, Name VARCHAR(64), Age INT, Born DATETIME)");
-    
-    int n = await conn.queryValue("SELECT COUNT(*) FROM Customers");
-    
-    expect(n, 0);
-    
-    Table cust = await conn.queryTable("SELECT Id, Name, Age FROM Customers");
-    
-    expect(cust.rows.length,0);
-    
-    var r = cust.newRow();
-    r["Name"] = "Porcino";
-    r["Age"] = 74;
-    cust.rows.add(r);
-    
-    await cust.post();
-    
-    n = await conn.queryValue("SELECT COUNT(*) FROM Customers");
-    expect(n, 1);
-    
-    //await conn.execute("DROP TABLE Customers");
+      describe("query()", ()
+      {
+         it("returns an empty List when quering empty rows", () async
+         {                  
+            // no customers named 'Mark'
+            var q = await conn.query("SELECT Name FROM Customers WHERE Name='Mark'");
+            expect(q).toEqual([]);
+         });      
+         
+         it("returns rows from query", () async
+         {                  
+            var q = await conn.query("SELECT Name, Age, HasWebSite, Born FROM Customers ORDER BY Id");
+            
+            expect(q is List).toEqual(true);
+            expect(q.length).toEqual(3);
+            expect(q).toEqual(
+            [
+               { "Name": 'Bob' , "Age": 33, "HasWebSite": false, "Born": null },
+               { "Name": 'Tom' , "Age": 42, "HasWebSite": true,  "Born": new DateTime(1972,05,03) },
+               { "Name": 'Mary', "Age": 18, "HasWebSite": true,  "Born": null } 
+            ]);
 
-    //await conn.execute("DROP DATABASE sql_test");
-    
-    await conn.close();            
-  });*/          
- });
- 
-  */  
+         });      
+      });
+      
+      describe("queryTable()", ()
+      {
+         it("when result is empty, returns no rows and filled column info", () async
+         {                  
+            // no customers named 'Mark'
+            var table = await conn.queryTable("SELECT Name FROM Customers WHERE Name='Mark'");
+            expect(table.rows.length).toEqual(0);
+            expect(table.columns.length).toEqual(2); // Primary key Id is always included
+         });      
+
+         it("returns a full datased", () async
+         {                  
+            // no customers named 'Mark'
+            var table = await conn.queryTable("SELECT Id, Name, Age, HasWebSite, Born FROM Customers ORDER BY Id");
+            expect(table.tableName).toEqual("Customers");
+            expect(table.rows.length).toEqual(3);
+            expect(table.columns.length).toEqual(5); 
+            expect(table.rows).toEqual(
+            [
+               { "Id": 1, "Name": 'Bob' , "Age": 33, "HasWebSite": false, "Born": null                     , "_originalIndex": 0 },
+               { "Id": 2, "Name": 'Tom' , "Age": 42, "HasWebSite": true,  "Born": new DateTime(1972,05,03) , "_originalIndex": 1 },
+               { "Id": 3, "Name": 'Mary', "Age": 18, "HasWebSite": true,  "Born": null                     , "_originalIndex": 2 }
+            ]);
+         });      
+      });
+   });        
 }
   
