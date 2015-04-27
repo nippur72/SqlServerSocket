@@ -2,11 +2,11 @@
 
 Connects to **Microsoft SQL Server** from the [Dart](dartlang.org) language.
 
-Connection to SQL Server is achieved by that use of a specific service (`SqlServerSocket.exe`, included here) that runs in the background and has to be started before the Dart program.
+Connection to SQL Server is achieved by the use of a specific service (`SqlServerSocket.exe` -- included here) that runs in the background and has to be started before the Dart program.
 
-This library allows to run SQL queries on the server and have them returned as native Dart objects (Lists, Maps) with the correct data types.
+With this library you can run SQL queries on the server and have them returned as native Dart objects (Lists, Maps) with the correct data types.
 
-There is also a dedicated class `Table` that simplifies CRUD operations on datasets without the need of writing the SQL queries to insert, update or delete. 
+There is also a dedicated class `Table` that simplifies CRUD operations on datasets without the need to writw SQL queries for insert, update or delete. 
 
 ## How to install it
 
@@ -16,7 +16,7 @@ There is also a dedicated class `Table` that simplifies CRUD operations on datas
 
 ## Basic usage
 
-Some dart examples (using `async` and `await`): 
+Some Dart examples (using `async` and `await`): 
 
 ```Dart
 // creates a connection 
@@ -49,7 +49,7 @@ await conn.close();
 
 ## SQL string formatting
 
-When composing SQL queries, strings, booleans and datetimes needs to be formatted according the SQL Server syntax. There are these helper functions you can use in your string interpolations:
+When writing SQL queries, strings, booleans and datetimes needs to be formatted according to the SQL Server syntax. You can use these helper functions in your string interpolations:
 
 * sqlBool()
 * sqlString()
@@ -57,10 +57,10 @@ When composing SQL queries, strings, booleans and datetimes needs to be formatte
 
 Example:
 
-```
+```Dart
 var custName = "J'EROME";
 var accept = true;
-conn.queryValue("""
+var v = await conn.queryValue("""
                  SELECT COUNT(*) 
                  FROM Customers 
                  WHERE Name = ${sqlString(custName)} 
