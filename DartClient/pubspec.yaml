@@ -4,7 +4,7 @@ description: A minimal command-line application.
 #author: <Antonino Porcino> <nino.porcino@gmail.com>
 #homepage: https://github.com/nippur72/SqlServerSocket
 environment:
-  sdk: '>=1.0.0 <2.0.0'
+  sdk: '>=1.0.0 <3.0.0'
 #dependencies:
 #  foo_bar: '>=1.0.0 <2.0.0'
 dev_dependencies:
